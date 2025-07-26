@@ -102,6 +102,7 @@ void print_solution (game *game) {
     }
 }
 
+// função play do professor modificada para seguir espiral, em boards 6x6 reduziu de .6 pra .01, e 7x7 fez em 103 seg, enquanto o original demorava mais de 2 horas
 int play (game *game, unsigned int x, unsigned int y) {
   for (int i = 0; i < game->tile_count; i++) {
     if (game->tiles[i].used) continue;
@@ -113,6 +114,7 @@ int play (game *game, unsigned int x, unsigned int y) {
 	game->board[x][y] = tile;
 	unsigned int nx, ny;
 	ny = nx = game->size;
+  // Prioridade 1: Mover para a direita (início da espiral ou virando para cima)
 	if (x < game->size - 1 && game->board[x + 1][y] == NULL && (y == 0 || game->board[x][y - 1] != NULL)) {
     nx = x + 1;
     ny = y;
