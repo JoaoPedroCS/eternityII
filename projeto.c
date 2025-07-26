@@ -1,3 +1,10 @@
+/*
+  Emilio Francesquini
+  e.francesquini@ufabc.edu.br
+  2020.Q1
+  CC-BY-SA 4.0
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -9,18 +16,18 @@ typedef struct {
   int used;
 } tile;
 
+#define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
+#define N_COLOR(t) (X_COLOR(t, 0))
+#define E_COLOR(t) (X_COLOR(t, 1))
+#define S_COLOR(t) (X_COLOR(t, 2))
+#define W_COLOR(t) (X_COLOR(t, 3))
+
 typedef struct {
   unsigned int size;
   unsigned int tile_count; //==size^2
   tile ***board;
   tile *tiles;
 } game;
-
-#define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
-#define N_COLOR(t) (X_COLOR(t, 0))
-#define E_COLOR(t) (X_COLOR(t, 1))
-#define S_COLOR(t) (X_COLOR(t, 2))
-#define W_COLOR(t) (X_COLOR(t, 3))
 
 game *initialize (FILE *input) {
   unsigned int bsize;
@@ -86,6 +93,7 @@ int valid_move (game *game, unsigned int x, unsigned int y, tile *tile) {
   return 1;
 }
 
+
 void print_solution (game *game) {
   for(unsigned int j = 0; j < game->size; j++)
     for(unsigned int i = 0; i < game->size; i++) {
@@ -93,7 +101,6 @@ void print_solution (game *game) {
       printf("%u %u\n", t->id, t->rotation);
     }
 }
-
 
 int play (game *game, unsigned int x, unsigned int y) {
   for (int i = 0; i < game->tile_count; i++) {
@@ -106,8 +113,11 @@ int play (game *game, unsigned int x, unsigned int y) {
 	game->board[x][y] = tile;
 	unsigned int nx, ny;
 	ny = nx = game->size;
-	if (x < game->size - 1 && game->board[x + 1][y] == NULL) {
-    if ( y == 0 || game->board[x][y - 1] != NULL){
+	if (x < game->size - 1) {
+    if (game->board[x + 1][y] == NULL && y == 0){
+      nx = x + 1;
+	    ny = y;
+    } else if (game->board[x][y-1] != NULL && game->board[x + 1][y] == NULL){
       nx = x + 1;
 	    ny = y;
     }
