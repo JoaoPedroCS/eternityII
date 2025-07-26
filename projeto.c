@@ -29,8 +29,6 @@ typedef struct {
 #define S_COLOR(t) (X_COLOR(t, 2))
 #define W_COLOR(t) (X_COLOR(t, 3))
 
-
-
 game *initialize (FILE *input) {
   unsigned int bsize;
   unsigned int ncolors;
