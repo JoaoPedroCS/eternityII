@@ -113,25 +113,26 @@ int play (game *game, unsigned int x, unsigned int y) {
 	game->board[x][y] = tile;
 	unsigned int nx, ny;
 	ny = nx = game->size;
-	if (x < game->size - 1) {
-    if (game->board[x + 1][y] == NULL && y == 0){
-      nx = x + 1;
-	    ny = y;
-    } else if (game->board[x][y-1] != NULL && game->board[x + 1][y] == NULL){
-      nx = x + 1;
-	    ny = y;
-    }
-	} else if (y < game->size - 1 && game->board[x][y + 1] == NULL) {
-	  nx = x;
-	  ny = y + 1;
-  } else if (x > 0 && game->board[x - 1][y] == NULL) {
+	if (x < game->size - 1 && game->board[x + 1][y] == NULL && (y == 0 || game->board[x][y - 1] != NULL)) {
+    nx = x + 1;
+    ny = y;
+  } 
+  // Prioridade 2: Mover para baixo
+  else if (y < game->size - 1 && game->board[x][y + 1] == NULL) {
+    nx = x;
+    ny = y + 1;
+  }
+  // Prioridade 3: Mover para a esquerda
+  else if (x > 0 && game->board[x - 1][y] == NULL) {
     nx = x - 1;
     ny = y;
-	} else if (y > 0 && game->board[x][y - 1] == NULL) {
+  }
+  // Prioridade 4: Mover para cima
+  else if (y > 0 && game->board[x][y - 1] == NULL) {
     nx = x;
     ny = y - 1;
-  } else {
-    nx = game->size; //no empty neighbour
+  }
+  else {
     ny = game->size;
   }
 
