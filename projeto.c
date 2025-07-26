@@ -93,3 +93,55 @@ void print_solution (game *game) {
       printf("%u %u\n", t->id, t->rotation);
     }
 }
+
+
+int play (game *game, unsigned int x, unsigned int y) {
+  for (int i = 0; i < game->tile_count; i++) {
+    if (game->tiles[i].used) continue;
+    tile *tile = &game->tiles[i];
+    tile->used = 1;
+    for (int rot = 0; rot < 4; rot++) {//tries each side
+      tile->rotation = rot;
+      if (valid_move(game, x, y, tile)) {
+	game->board[x][y] = tile;
+	unsigned int nx, ny;
+	ny = nx = game->size;
+	if (x < game->size - 1 && game->board[x + 1][y] == NULL) {
+    if ( y == 0 || game->board[x][y - 1] != NULL){
+      nx = x + 1;
+	    ny = y;
+    }
+	} else if (y < game->size - 1 && game->board[x][y + 1] == NULL) {
+	  nx = x;
+	  ny = y + 1;
+  } else if (x > 0 && game->board[x - 1][y] == NULL) {
+    nx = x - 1;
+    ny = y;
+	} else if (y > 0 && game->board[x][y - 1] == NULL) {
+    nx = x;
+    ny = y - 1;
+  } else {
+    nx = game->size; //no empty neighbour
+    ny = game->size;
+  }
+
+	if (ny == game->size || play(game, nx, ny)) {
+	  return 1;
+	}
+	game->board[x][y] = NULL;
+      }
+    }
+    tile->used = 0;
+  }
+  //no solution was found
+  return 0;
+}
+
+int main (int argc, char **argv) {
+  game *g = initialize(stdin);
+  if (play(g, 0, 0))
+    print_solution(g);
+  else
+    printf("SOLUTION NOT FOUND");
+  free_resources(g);
+}
