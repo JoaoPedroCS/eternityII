@@ -16,18 +16,20 @@ typedef struct {
   int used;
 } tile;
 
-#define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
-#define N_COLOR(t) (X_COLOR(t, 0))
-#define E_COLOR(t) (X_COLOR(t, 1))
-#define S_COLOR(t) (X_COLOR(t, 2))
-#define W_COLOR(t) (X_COLOR(t, 3))
-
 typedef struct {
   unsigned int size;
   unsigned int tile_count; //==size^2
   tile ***board;
   tile *tiles;
 } game;
+
+#define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
+#define N_COLOR(t) (X_COLOR(t, 0))
+#define E_COLOR(t) (X_COLOR(t, 1))
+#define S_COLOR(t) (X_COLOR(t, 2))
+#define W_COLOR(t) (X_COLOR(t, 3))
+
+
 
 game *initialize (FILE *input) {
   unsigned int bsize;
