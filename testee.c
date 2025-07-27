@@ -3,6 +3,11 @@
   e.francesquini@ufabc.edu.br
   2020.Q1
   CC-BY-SA 4.0
+
+  Modificado para incluir e popular uma "lista de listas" (buckets)
+  que categoriza as peças por cor e uma lista separada para peças de vértice.
+  Adicionada a função play_first para iniciar a busca a partir de um canto.
+  OTIMIZAÇÃO: A função play agora recebe a cor necessária como parâmetro.
 */
 
 #include <stdio.h>
@@ -10,6 +15,7 @@
 #include <assert.h>
 #include <time.h>
 
+// Estrutura para uma única peça
 typedef struct {
   unsigned int colors[4];
   unsigned char rotation;
@@ -17,12 +23,14 @@ typedef struct {
   int used;
 } tile;
 
+// Estrutura para uma lista dinâmica de ponteiros para peças
 typedef struct {
-  tile **tiles;
-  unsigned int count;
-  unsigned int capacity;
+    tile **tiles;
+    unsigned int count;
+    unsigned int capacity;
 } tile_list;
 
+// Estrutura para o estado completo do jogo
 typedef struct {
   unsigned int size;
   unsigned int tile_count;
@@ -38,6 +46,11 @@ typedef struct {
 #define E_COLOR(t) (X_COLOR(t, 1))
 #define S_COLOR(t) (X_COLOR(t, 2))
 #define W_COLOR(t) (X_COLOR(t, 3))
+
+// Declaração antecipada das funções de busca
+int play(game *game, unsigned int x, unsigned int y, unsigned int required_color);
+int play_inversa(game *game, unsigned int x, unsigned int y, unsigned int required_color);
+
 
 void add_tile_to_list(tile_list *list, tile *t) {
   // se uma peça tem a mesma cor duas vezes, não a adicionamos duas vezes na mesma lista
@@ -132,7 +145,7 @@ game *initialize (FILE *input) {
   }
 
   build_color_buckets(g);
-  find_vertex_tiles(g);
+  find_vertex_tiles(g); 
 
   return g;
 }
@@ -164,6 +177,22 @@ void free_resources(game *game) {
   free(game);
 }
 
+// --- NOVA FUNÇÃO AUXILIAR ---
+// Limpa o tabuleiro e o estado das peças para uma nova tentativa
+void reset_game_state(game *g) {
+    // Limpa o tabuleiro
+    for (unsigned int y = 0; y < g->size; y++) {
+        for (unsigned int x = 0; x < g->size; x++) {
+            g->board[y][x] = NULL;
+        }
+    }
+    // Reseta o estado 'used' de todas as peças
+    for (unsigned int i = 0; i < g->tile_count; i++) {
+        g->tiles[i].used = 0;
+    }
+}
+
+
 int valid_move (game *game, unsigned int x, unsigned int y, tile *tile) {
   //The borders must be 0-colored
   if (x == 0 && W_COLOR(tile) != 0) return 0;
@@ -188,7 +217,7 @@ void print_solution (game *game) {
     }
 }
 
-// função play do professor modificada para seguir espiral
+// --- FUNÇÃO PLAY OTIMIZADA ---
 int play (game *game, unsigned int x, unsigned int y, unsigned int required_color) {
   
   // Usa a cor recebida para pegar a lista de candidatos
@@ -207,7 +236,7 @@ int play (game *game, unsigned int x, unsigned int y, unsigned int required_colo
         unsigned int next_required_color = 0;
         ny = nx = game->size;
 
-        // Determina a próxima posição E a próxima cor necessária
+        // Determina a próxima posição E a próxima cor necessária (Espiral: Direita -> Baixo -> Esquerda -> Cima)
         if (x < game->size - 1 && game->board[y][x + 1] == NULL && (y == 0 || game->board[y - 1][x] != NULL)) {
           nx = x + 1; ny = y;
           next_required_color = E_COLOR(tile);
@@ -236,7 +265,7 @@ int play (game *game, unsigned int x, unsigned int y, unsigned int required_colo
   return 0;
 }
 
-// --- NOVA FUNÇÃO PLAY INVERSA ---
+// --- FUNÇÃO PLAY INVERSA ---
 int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int required_color) {
   
   // Usa a cor recebida para pegar a lista de candidatos
@@ -283,6 +312,7 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
 
   return 0;
 }
+
 
 // Tenta resolver o tabuleiro começando com uma peça de vértice específica,
 // sempre na posição (0,0).
@@ -349,24 +379,40 @@ int play_first(game *g, int vertex_choice) {
     return 0; // Nenhuma rotação da peça inicial levou a uma solução
 }
 
+
 int main (int argc, char **argv) {
-  clock_t start_time, end_time;
-  double cpu_time_used;
-  start_time = clock();
-
+  
   game *g = initialize(stdin);
+  int solution_found_flag = 0;
 
-  int initial_vertex_choice = 4; 
-  if (play_first(g, initial_vertex_choice)) {
-    printf("SOLUÇÃO ENCONTRADA (iniciando com a peça de vértice de índice %d):\n", initial_vertex_choice);
-    print_solution(g);
-  } else {
-    printf("SOLUTION NOT FOUND (iniciando com a peça de vértice de índice %d)\n", initial_vertex_choice);
+  // Loop para testar todas as 8 estratégias de início
+  for (int i = 0; i < 8; i++) {
+      clock_t start_time, end_time;
+      double cpu_time_used;
+      
+      fprintf(stderr, "\n--- TENTATIVA COM A ESTRATÉGIA: %d ---\n", i);
+      start_time = clock();
+
+      if (play_first(g, i)) {
+          // Imprime a solução apenas na primeira vez que a encontra
+          if (!solution_found_flag) {
+             printf("PRIMEIRA SOLUÇÃO ENCONTRADA (com a estratégia de início %d):\n", i);
+             //print_solution(g);
+             solution_found_flag = 1;
+          }
+      } 
+      
+      end_time = clock();
+      cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+      fprintf(stderr, "Tempo para a tentativa %d: %f segundos\n", i, cpu_time_used);
+      
+      // Reseta o estado do jogo para a próxima iteração
+      reset_game_state(g); 
   }
 
-  end_time = clock();
-  cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-  printf("Execution time: %f seconds\n", cpu_time_used);
+  if (!solution_found_flag) {
+      printf("\nSOLUTION NOT FOUND (após testar todas as 8 opções)\n");
+  }
 
   free_resources(g);
   return 0;
