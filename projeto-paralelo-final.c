@@ -15,7 +15,7 @@
 #include <assert.h>
 #include <string.h>
 #include <mpi.h>
-//testes
+
 // Variáveis para a comunicação MPI (trocar informações entre processos)
 const int WORK = 1;
 const int STOP = 2;
@@ -351,11 +351,11 @@ int play_first(game *g, int vertex_choice, int *stop_flag) {
 
 // Lógica do P0: Enviar dados para os outros processadores e gerenciar a execução
 void master_process(game *g, int mpi_size) {
-    double start_time, end_time;
-    int tot_tasks = 8, next_task = 0, int workers_finished = 0, int solution_found = 0;
+    // double start_time, end_time;
+    int tot_tasks = 8, next_task = 0, workers_finished = 0, solution_found = 0;
     
     MPI_Barrier(MPI_COMM_WORLD);
-    start_time = MPI_Wtime();
+    // start_time = MPI_Wtime();
 
     // Distribui as tarefas iniciais para os trabalhadores e gerenciar quando uma resposta é encontrada
     for (int rank = 1; rank < mpi_size; rank++) {
@@ -380,10 +380,10 @@ void master_process(game *g, int mpi_size) {
             
             if (!solution_found) {
                 solution_found = 1;
-                end_time = MPI_Wtime();
-                printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
+                // end_time = MPI_Wtime();
+                // printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
                 print_solution(final_solution, g->size);
-                fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
+                // printf("\nTempo de execução: %f segundos\n", end_time - start_time);
                 
                 // Manda parar todos os trabalhadores
                 for (int rank = 1; rank < mpi_size; rank++) {
@@ -398,14 +398,8 @@ void master_process(game *g, int mpi_size) {
             MPI_Recv(&task_completed, 1, MPI_INT, status.MPI_SOURCE, FAIL, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             if (solution_found) {
-                // Se a solução já foi encontrada, anota que acabou
                 workers_finished++;
-            } else if (next_task < tot_tasks) {
-                // Se ainda há tarefas, manda a próxima (Caso com menos de 4 workers)
-                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, WORK, MPI_COMM_WORLD);
-                next_task++;
             } else {
-                // Se não tem mais tarefas, manda parar
                 MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, STOP, MPI_COMM_WORLD);
                 workers_finished++;
             }
@@ -413,9 +407,8 @@ void master_process(game *g, int mpi_size) {
     }
 
     if (!solution_found) {
-        end_time = MPI_Wtime();
+        // end_time = MPI_Wtime();
         printf("SOLUTION NOT FOUND\n");
-        fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
     }
 }
 
@@ -446,10 +439,9 @@ void worker_process(game *g) {
                     k++;
                 }
             }
-            // Atenção no MPI_Byte provavelmente GPT
             MPI_Send(tiles_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, 0, FOUND, MPI_COMM_WORLD);
             free(tiles_solution);
-            stop_flag = 1; // Encontrou, pode parar
+            stop_flag = 1;
         } else {
             MPI_Send(&task_id, 1, MPI_INT, 0, FAIL, MPI_COMM_WORLD);
         }
@@ -461,12 +453,6 @@ int main (int argc, char **argv) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-
-  // if (mpi_size < 2) {
-  //   if (mpi_rank == 0) fprintf(stderr, "Erro: O programa paralelo precisa de pelo menos 2 processos.\n");
-  //   MPI_Finalize();
-  //   return 1;
-  // }
   
   game *g = NULL;
   
