@@ -1,8 +1,9 @@
 /*
-  Emilio Francesquini
-  e.francesquini@ufabc.edu.br
-  2020.Q1
-  CC-BY-SA 4.0
+  * Projeto Eternity II - Versão Sequencial
+  *
+  * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
+  * Feito com base nop codigo do professor Emilio Francesquini
+  * Data: Outubro de 2023
 */
 
 #include <stdio.h>

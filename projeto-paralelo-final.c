@@ -1,4 +1,11 @@
 /*
+
+  * Projeto Eternity II - Versão Sequencial
+  *
+  * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
+  * Feito com base nop codigo do professor Emilio Francesquini
+  * Data: Outubro de 2023
+
   Versão final do projeto, paralelizada com MPI.
   Toda a lógica de otimização sequencial foi mantida e distribuída
   entre os processos trabalhadores.
