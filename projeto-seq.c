@@ -1,10 +1,10 @@
 /*
- * Projeto Eternity II - Versão Sequencial
- * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
- * Feito com base nop codigo do professor Emilio Francesquini
- * Data: Julho de 2025
- * Heuristicas feitas: percorrer o tabuleiro em espiral, checar apenas tiles que tem match de cor com tile adjacente. Junto a logica do ponto de partida foi mudado pra facilitar na hora de paralelizar
- * foi usado AIs em casos de erro de sintaxe e/ou entender erros de execuçao que geravam segmentation fault por exemplo
+ * Projeto Eternity II - Versão Sequencial.
+ * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim - Grupo Jotas.
+ * Feito com base nop codigo do professor Emilio Francesquini.
+ * Data: Julho de 2025.
+ * Heuristicas feitas: percorrer o tabuleiro em espiral, checar apenas tiles que tem match de cor com tile adjacente. Junto a logica do ponto de partida foi mudado pra facilitar na hora de paralelizar.
+ * foi usado AIs em alguns casos de erro de sintaxe e não achavamos o problema e/ou entender erros de execuçao que geravam segmentation fault por exemplo.
 */
 
 #include <stdio.h>
