@@ -1,29 +1,27 @@
 /*
-
- * Projeto Eternity II - Versão Sequencial
+ * Projeto Eternity II - Versão Paralela
  *
  * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
- * Feito com base nop codigo do professor Emilio Francesquini
- * Data: Outubro de 2023
+ * Feito com base no codigo sequencial desse projeto
+ * Data: Julho de 2025
 
  Versão final do projeto, paralelizada com MPI.
  Toda a lógica de otimização sequencial foi mantida e distribuída
  entre os processos trabalhadores.
 */
-// Oi
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <mpi.h>
 
-// Tags para a comunicação MPI
-const int WORK_TAG = 1;
-const int STOP_TAG = 2;
-const int SOLUTION_TAG = 3;
-const int NO_SOLUTION_TAG = 4;
+// Variáveis para a comunicação MPI (trocar informações entre processos)
+const int WORK = 1;
+const int STOP = 2;
+const int FOUND = 3;
+const int FAIL = 4;
 
-// --- ESTRUTURAS DE DADOS ---
 typedef struct {
   unsigned int colors[4];
   unsigned char rotation;
@@ -44,7 +42,7 @@ typedef struct {
   tile ***board;
   tile *tiles;
   tile_list **color_buckets;
-  tile_list *vertex_tiles;
+  tile_list *tiles_vertice;
 } game;
 
 typedef struct {
@@ -58,15 +56,53 @@ typedef struct {
 #define S_COLOR(t) (X_COLOR(t, 2))
 #define W_COLOR(t) (X_COLOR(t, 3))
 
-// --- DECLARAÇÕES ANTECIPADAS ---
-int play(game *game, unsigned int x, unsigned int y, unsigned int required_color, int *stop_flag);
-int play_inversa(game *game, unsigned int x, unsigned int y, unsigned int required_color, int *stop_flag);
-void add_tile_to_list(tile_list *list, tile *t);
-void build_color_buckets(game *g);
-void find_vertex_tiles(game *g);
+void add_tile(tile_list *list, tile *t) {
+  for (unsigned int i = 0; i < list->count; i++) {
+    if (list->tiles[i]->id == t->id) return;
+  }
+  if (list->count >= list->capacity) {
+    list->capacity = (list->capacity == 0) ? 4 : list->capacity * 2;
+    list->tiles = realloc(list->tiles, list->capacity * sizeof(tile*));
+    assert(list->tiles != NULL);
+  }
+  list->tiles[list->count++] = t;
+}
 
-// --- FUNÇÕES DE INICIALIZAÇÃO E LIMPEZA ---
-game *initialize_from_data(unsigned int bsize, unsigned int ncolors, tile* tiles_data, int tile_count) {
+void find_vertex(game *g) {
+  g->tiles_vertice = calloc(1, sizeof(tile_list));
+  assert(g->tiles_vertice != NULL);
+  for (unsigned int i = 0; i < g->tile_count; i++) {
+    tile *current_tile = &g->tiles[i];
+    int zero_count = 0;
+    for (int c = 0; c < 4; c++) {
+      if (current_tile->colors[c] == 0) zero_count++;
+    }
+    if (zero_count == 2) {
+      add_tile(g->tiles_vertice, current_tile);
+    }
+  }
+}
+
+void create_color_list(game *g) {
+  g->color_buckets = calloc(g->ncolors, sizeof(tile_list*));
+  assert(g->color_buckets != NULL);
+  for (unsigned int i = 0; i < g->ncolors; i++) {
+    g->color_buckets[i] = calloc(1, sizeof(tile_list));
+    assert(g->color_buckets[i] != NULL);
+  }
+  for (unsigned int i = 0; i < g->tile_count; i++) {
+    tile *current_tile = &g->tiles[i];
+    for (int c = 0; c < 4; c++) {
+      unsigned int color = current_tile->colors[c];
+      if (color < g->ncolors) {
+        add_tile(g->color_buckets[color], current_tile);
+      }
+    }
+  }
+}
+
+// Função Usada para que cada processador do MPI possa ter uma cópia do jogo para fazer sua busca
+game *create_game_worker(unsigned int bsize, unsigned int ncolors, tile* tiles_data, int tile_count) {
     game *g = malloc(sizeof(game));
     assert(g != NULL);
     g->ncolors = ncolors;
@@ -79,8 +115,8 @@ game *initialize_from_data(unsigned int bsize, unsigned int ncolors, tile* tiles
     g->tiles = malloc(g->tile_count * sizeof(tile));
     memcpy(g->tiles, tiles_data, g->tile_count * sizeof(tile));
     
-    build_color_buckets(g);
-    find_vertex_tiles(g);
+    create_color_list(g);
+    find_vertex(g);
     return g;
 }
 
@@ -113,16 +149,16 @@ game *initialize (FILE *input) {
     }
   }
 
-  build_color_buckets(g);
-  find_vertex_tiles(g); 
+  create_color_list(g);
+  find_vertex(g); 
   return g;
 }
 
 void free_resources(game *game) {
   if (game == NULL) return;
-  if (game->vertex_tiles) {
-    if (game->vertex_tiles->tiles) free(game->vertex_tiles->tiles);
-    free(game->vertex_tiles);
+  if (game->tiles_vertice) {
+    if (game->tiles_vertice->tiles) free(game->tiles_vertice->tiles);
+    free(game->tiles_vertice);
   }
   if (game->color_buckets) {
     for (unsigned int i = 0; i < game->ncolors; i++) {
@@ -142,18 +178,6 @@ void free_resources(game *game) {
   free(game);
 }
 
-void reset_game_state(game *g) {
-    for (unsigned int y = 0; y < g->size; y++) {
-        for (unsigned int x = 0; x < g->size; x++) {
-            g->board[y][x] = NULL;
-        }
-    }
-    for (unsigned int i = 0; i < g->tile_count; i++) {
-        g->tiles[i].used = 0;
-    }
-}
-
-// --- LÓGICA DE VALIDAÇÃO E IMPRESSÃO ---
 int valid_move (game *game, unsigned int x, unsigned int y, tile *tile) {
   if (x == 0 && W_COLOR(tile) != 0) return 0;
   if (y == 0 && N_COLOR(tile) != 0) return 0;
@@ -176,13 +200,16 @@ void print_solution (solution_tile* solution, unsigned int size) {
     }
 }
 
-// --- FUNÇÕES DE BUSCA RECURSIVA (para os trabalhadores) ---
 int play (game *game, unsigned int x, unsigned int y, unsigned int required_color, int *stop_flag) {
   if (*stop_flag) return 0;
+
+  // Apesar do professor contra-indicar o uso de variável estática foi a forma encontrada para fazer
+  // uma checagem regular do status da aplicação (sugestão do GPT)
   static int check_counter = 0;
   if (++check_counter % 2000 == 0) {
       int message_present = 0;
-      MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
+      // A utilização dessa função veio do GPT para como fazer a comunicação de modo não bloqueante
+      MPI_Iprobe(0, STOP, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
       if (message_present) {
           *stop_flag = 1;
           return 0;
@@ -235,7 +262,7 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
   static int check_counter = 0;
   if (++check_counter % 2000 == 0) {
       int message_present = 0;
-      MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
+      MPI_Iprobe(0, STOP, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
       if (message_present) {
           *stop_flag = 1;
           return 0;
@@ -288,8 +315,8 @@ int play_first(game *g, int vertex_choice, int *stop_flag) {
     unsigned int x = 0, y = 0;
 
     if (vertex_choice >= 0 && vertex_choice <= 3) {
-        if ((unsigned int)vertex_choice >= g->vertex_tiles->count) return 0;
-        start_tile = g->vertex_tiles->tiles[vertex_choice];
+        if ((unsigned int)vertex_choice >= g->tiles_vertice->count) return 0;
+        start_tile = g->tiles_vertice->tiles[vertex_choice];
         unsigned int nx = 1, ny = 0;
         for (int rot = 0; rot < 4; rot++) {
             start_tile->rotation = rot;
@@ -304,8 +331,8 @@ int play_first(game *g, int vertex_choice, int *stop_flag) {
         }
     } else if (vertex_choice >= 4 && vertex_choice <= 7) {
         int mapped_choice = vertex_choice - 4;
-        if ((unsigned int)mapped_choice >= g->vertex_tiles->count) return 0;
-        start_tile = g->vertex_tiles->tiles[mapped_choice];
+        if ((unsigned int)mapped_choice >= g->tiles_vertice->count) return 0;
+        start_tile = g->tiles_vertice->tiles[mapped_choice];
         unsigned int nx = 0, ny = 1;
         for (int rot = 0; rot < 4; rot++) {
             start_tile->rotation = rot;
@@ -322,35 +349,34 @@ int play_first(game *g, int vertex_choice, int *stop_flag) {
     return 0;
 }
 
-// --- LÓGICA DO MESTRE E DOS TRABALHADORES ---
+// Lógica do P0: Enviar dados para os outros processadores e gerenciar a execução
 void master_process(game *g, int mpi_size) {
     double start_time, end_time;
-    int total_tasks = 8;
-    int next_task = 0;
-    int workers_finished = 0;
-    int solution_found = 0;
+    int tot_tasks = 8, next_task = 0, int workers_finished = 0, int solution_found = 0;
     
     MPI_Barrier(MPI_COMM_WORLD);
     start_time = MPI_Wtime();
 
-    // Distribui as tarefas iniciais para os trabalhadores
+    // Distribui as tarefas iniciais para os trabalhadores e gerenciar quando uma resposta é encontrada
     for (int rank = 1; rank < mpi_size; rank++) {
-        if (next_task < total_tasks) {
-            MPI_Send(&next_task, 1, MPI_INT, rank, WORK_TAG, MPI_COMM_WORLD);
+        if (next_task < tot_tasks) {
+            MPI_Send(&next_task, 1, MPI_INT, rank, WORK, MPI_COMM_WORLD);
             next_task++;
         } else {
-            MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD); // Nenhuma tarefa para este
+            MPI_Send(&next_task, 1, MPI_INT, rank, STOP, MPI_COMM_WORLD); // Nenhuma tarefa para este
         }
     }
 
     while (workers_finished < (mpi_size - 1)) {
+        
+        // A função Probe foi uma sugestão do GPT de como passar mensagens de modo não bloqueante através de Tags
         MPI_Status status;
         MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         
-        if (status.MPI_TAG == SOLUTION_TAG) {
-            const int num_tiles = g->size * g->size;
+        if (status.MPI_TAG == FOUND) {
+            int num_tiles = g->size * g->size;
             solution_tile* final_solution = malloc(num_tiles * sizeof(solution_tile));
-            MPI_Recv(final_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, status.MPI_SOURCE, SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(final_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, status.MPI_SOURCE, FOUND, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             
             if (!solution_found) {
                 solution_found = 1;
@@ -361,26 +387,26 @@ void master_process(game *g, int mpi_size) {
                 
                 // Manda parar todos os trabalhadores
                 for (int rank = 1; rank < mpi_size; rank++) {
-                    MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD);
+                    MPI_Send(&next_task, 1, MPI_INT, rank, STOP, MPI_COMM_WORLD);
                 }
             }
             free(final_solution);
             workers_finished++;
 
-        } else if (status.MPI_TAG == NO_SOLUTION_TAG) {
+        } else if (status.MPI_TAG == FAIL) {
             int task_completed;
-            MPI_Recv(&task_completed, 1, MPI_INT, status.MPI_SOURCE, NO_SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(&task_completed, 1, MPI_INT, status.MPI_SOURCE, FAIL, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             if (solution_found) {
-                // Se a solução já foi encontrada, apenas marca como finalizado
+                // Se a solução já foi encontrada, anota que acabou
                 workers_finished++;
-            } else if (next_task < total_tasks) {
-                // Se ainda há tarefas, envia a próxima
-                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, WORK_TAG, MPI_COMM_WORLD);
+            } else if (next_task < tot_tasks) {
+                // Se ainda há tarefas, manda a próxima (Caso com menos de 4 workers)
+                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, WORK, MPI_COMM_WORLD);
                 next_task++;
             } else {
-                // Se não há mais tarefas, manda parar
-                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, STOP_TAG, MPI_COMM_WORLD);
+                // Se não tem mais tarefas, manda parar
+                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, STOP, MPI_COMM_WORLD);
                 workers_finished++;
             }
         }
@@ -393,6 +419,7 @@ void master_process(game *g, int mpi_size) {
     }
 }
 
+// Lógica dos Outros Processadores: Inicia o Processo de busca de uma solução e o encerra
 void worker_process(game *g) {
     int stop_flag = 0;
     MPI_Barrier(MPI_COMM_WORLD);
@@ -402,33 +429,32 @@ void worker_process(game *g) {
         MPI_Status status;
         MPI_Recv(&task_id, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        if (status.MPI_TAG == STOP_TAG) {
+        if (status.MPI_TAG == STOP) {
             stop_flag = 1;
             continue;
         }
 
-        reset_game_state(g);
         if (play_first(g, task_id, &stop_flag)) {
-            const int num_tiles = g->size * g->size;
-            solution_tile* solution_payload = malloc(num_tiles * sizeof(solution_tile));
+            int num_tiles = g->size * g->size;
+            solution_tile* tiles_solution = malloc(num_tiles * sizeof(solution_tile));
             int k = 0;
             for (unsigned int j = 0; j < g->size; j++) {
                 for (unsigned int i = 0; i < g->size; i++) {
                     tile* t = g->board[j][i];
-                    solution_payload[k].id = t->id;
-                    solution_payload[k].rotation = t->rotation;
+                    tiles_solution[k].id = t->id;
+                    tiles_solution[k].rotation = t->rotation;
                     k++;
                 }
             }
-            MPI_Send(solution_payload, num_tiles * sizeof(solution_tile), MPI_BYTE, 0, SOLUTION_TAG, MPI_COMM_WORLD);
-            free(solution_payload);
+            // Atenção no MPI_Byte provavelmente GPT
+            MPI_Send(tiles_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, 0, FOUND, MPI_COMM_WORLD);
+            free(tiles_solution);
             stop_flag = 1; // Encontrou, pode parar
         } else {
-            MPI_Send(&task_id, 1, MPI_INT, 0, NO_SOLUTION_TAG, MPI_COMM_WORLD);
+            MPI_Send(&task_id, 1, MPI_INT, 0, FAIL, MPI_COMM_WORLD);
         }
     }
 }
-
 
 int main (int argc, char **argv) {
   int mpi_rank, mpi_size;
@@ -436,11 +462,11 @@ int main (int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-  if (mpi_size < 2) {
-    if (mpi_rank == 0) fprintf(stderr, "Erro: Este programa requer pelo menos 2 processos.\n");
-    MPI_Finalize();
-    return 1;
-  }
+  // if (mpi_size < 2) {
+  //   if (mpi_rank == 0) fprintf(stderr, "Erro: O programa paralelo precisa de pelo menos 2 processos.\n");
+  //   MPI_Finalize();
+  //   return 1;
+  // }
   
   game *g = NULL;
   
@@ -458,7 +484,7 @@ int main (int argc, char **argv) {
       MPI_Bcast(&tile_count, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
       tile *tiles_data = malloc(tile_count * sizeof(tile));
       MPI_Bcast(tiles_data, tile_count * sizeof(tile), MPI_BYTE, 0, MPI_COMM_WORLD);
-      g = initialize_from_data(bsize, ncolors, tiles_data, tile_count);
+      g = create_game_worker(bsize, ncolors, tiles_data, tile_count);
       free(tiles_data);
       worker_process(g);
   }
@@ -466,50 +492,4 @@ int main (int argc, char **argv) {
   free_resources(g);
   MPI_Finalize();
   return 0;
-}
-
-// --- DEFINIÇÕES DAS FUNÇÕES AUXILIARES ---
-void add_tile_to_list(tile_list *list, tile *t) {
-  for (unsigned int i = 0; i < list->count; i++) {
-    if (list->tiles[i]->id == t->id) return;
-  }
-  if (list->count >= list->capacity) {
-    list->capacity = (list->capacity == 0) ? 4 : list->capacity * 2;
-    list->tiles = realloc(list->tiles, list->capacity * sizeof(tile*));
-    assert(list->tiles != NULL);
-  }
-  list->tiles[list->count++] = t;
-}
-
-void build_color_buckets(game *g) {
-  g->color_buckets = calloc(g->ncolors, sizeof(tile_list*));
-  assert(g->color_buckets != NULL);
-  for (unsigned int i = 0; i < g->ncolors; i++) {
-    g->color_buckets[i] = calloc(1, sizeof(tile_list));
-    assert(g->color_buckets[i] != NULL);
-  }
-  for (unsigned int i = 0; i < g->tile_count; i++) {
-    tile *current_tile = &g->tiles[i];
-    for (int c = 0; c < 4; c++) {
-      unsigned int color = current_tile->colors[c];
-      if (color < g->ncolors) {
-        add_tile_to_list(g->color_buckets[color], current_tile);
-      }
-    }
-  }
-}
-
-void find_vertex_tiles(game *g) {
-  g->vertex_tiles = calloc(1, sizeof(tile_list));
-  assert(g->vertex_tiles != NULL);
-  for (unsigned int i = 0; i < g->tile_count; i++) {
-    tile *current_tile = &g->tiles[i];
-    int zero_count = 0;
-    for (int c = 0; c < 4; c++) {
-      if (current_tile->colors[c] == 0) zero_count++;
-    }
-    if (zero_count == 2) {
-      add_tile_to_list(g->vertex_tiles, current_tile);
-    }
-  }
 }
