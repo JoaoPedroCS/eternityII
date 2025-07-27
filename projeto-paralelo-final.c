@@ -10,7 +10,7 @@
   Toda a lógica de otimização sequencial foi mantida e distribuída
   entre os processos trabalhadores.
 */
-
+// Oi
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
