@@ -1,9 +1,8 @@
 /*
   * Projeto Eternity II - Versão Sequencial
-  *
   * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
   * Feito com base nop codigo do professor Emilio Francesquini
-  * Data: Outubro de 2023
+  * Data: Julho de 2025
 */
 
 #include <stdio.h>
@@ -27,11 +26,11 @@ typedef struct {
 typedef struct {
   unsigned int size;
   unsigned int tile_count;
-  unsigned int ncolors; // Número de cores + 1 (para a cor 0)
+  unsigned int ncolors; // Adicionei o número de cores (+ 1, para a cor 0)
   tile ***board;
   tile *tiles;
   tile_list **color_buckets; // Array de listas por cor
-  tile_list *vertex_tiles;   // Lista de peças de vértice (com 2 zeros)
+  tile_list *tiles_vertice;   // Lista de peças de vértice (com 2 zeros)
 } game;
 
 #define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
@@ -40,14 +39,13 @@ typedef struct {
 #define S_COLOR(t) (X_COLOR(t, 2))
 #define W_COLOR(t) (X_COLOR(t, 3))
 
+// Adiciona uma peça a uma lista passada deevitando repetir
 void add_tile_to_list(tile_list *list, tile *t) {
-  // se uma peça tem a mesma cor duas vezes, não a adicionamos duas vezes na mesma lista
   for (unsigned int i = 0; i < list->count; i++) {
     if (list->tiles[i]->id == t->id) {
       return;
     }
   }
-  // Se a lista está cheia, dobra a capacidade
   if (list->count >= list->capacity) {
     list->capacity = (list->capacity == 0) ? 4 : list->capacity * 2;
     list->tiles = realloc(list->tiles, list->capacity * sizeof(tile*));
@@ -55,19 +53,17 @@ void add_tile_to_list(tile_list *list, tile *t) {
   }
   list->tiles[list->count++] = t;
 }
-
+// Popula a lista de lista com os tiles correspondentes
 void build_color_buckets(game *g) {
-  // Aloca o array de listas
+
   g->color_buckets = calloc(g->ncolors, sizeof(tile_list*));
   assert(g->color_buckets != NULL);
 
-  // Inicializa cada lista individualmente
   for (unsigned int i = 0; i < g->ncolors; i++) {
     g->color_buckets[i] = calloc(1, sizeof(tile_list));
     assert(g->color_buckets[i] != NULL);
   }
-
-  // Percorre todas as peças e as adiciona aos buckets corretos
+  
   for (unsigned int i = 0; i < g->tile_count; i++) {
     tile *current_tile = &g->tiles[i];
     for (int c = 0; c < 4; c++) {
@@ -78,25 +74,21 @@ void build_color_buckets(game *g) {
     }
   }
 }
-
+// Aqui vai ter todas tiles de canto(vertice) que tem 2 cor cinza, se tiver 2 add na lista
 void find_vertex_tiles(game *g) {
-  // Aloca e inicializa a lista de peças de vértice
-  g->vertex_tiles = calloc(1, sizeof(tile_list));
-  assert(g->vertex_tiles != NULL);
+  g->tiles_vertice = calloc(1, sizeof(tile_list));
+  assert(g->tiles_vertice != NULL);
 
-  // Percorre todas as peças do jogo
   for (unsigned int i = 0; i < g->tile_count; i++) {
     tile *current_tile = &g->tiles[i];
     int zero_count = 0;
-    // Conta quantas vezes a cor 0 aparece na peça
     for (int c = 0; c < 4; c++) {
       if (current_tile->colors[c] == 0) {
         zero_count++;
       }
     }
-    // Se a contagem for exatamente 2, é uma peça de vértice
     if (zero_count == 2) {
-      add_tile_to_list(g->vertex_tiles, current_tile);
+      add_tile_to_list(g-, current_tile);
     }
   }
 }
@@ -294,11 +286,11 @@ int play_first(game *g, int vertex_choice) {
 
     // Lógica para chamar a busca normal ou a inversa
     if (vertex_choice >= 0 && vertex_choice <= 3) {
-        if ((unsigned int)vertex_choice >= g->vertex_tiles->count) {
+        if ((unsigned int)vertex_choice >= g-->count) {
             fprintf(stderr, "Escolha de vértice (%d) inválida. Tente um número menor.\n", vertex_choice);
             return 0;
         }
-        start_tile = g->vertex_tiles->tiles[vertex_choice];
+        start_tile = g-->tiles[vertex_choice];
         
         unsigned int nx = 1, ny = 0; // Próxima posição para a espiral normal
 
@@ -319,11 +311,11 @@ int play_first(game *g, int vertex_choice) {
         }
     } else if (vertex_choice >= 4 && vertex_choice <= 7) {
         int mapped_choice = vertex_choice - 4;
-        if ((unsigned int)mapped_choice >= g->vertex_tiles->count) {
+        if ((unsigned int)mapped_choice >= g-->count) {
             fprintf(stderr, "Escolha de vértice (%d) inválida. Tente um número menor.\n", vertex_choice);
             return 0;
         }
-        start_tile = g->vertex_tiles->tiles[mapped_choice];
+        start_tile = g-->tiles[mapped_choice];
 
         unsigned int nx = 0, ny = 1; // Próxima posição para a espiral inversa
 
