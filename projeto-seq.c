@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <time.h> // Biblioteca para o cronômetro
+#include <time.h>
 
 typedef struct {
   unsigned int colors[4];
@@ -42,7 +42,6 @@ game *initialize (FILE *input) {
   //creates an empty board
   game *g = malloc (sizeof(game));
   g->size = bsize;
-  // Alocação padronizada para [linha][coluna] -> [y][x]
   g->board = malloc (sizeof (tile**) * bsize);
   for(unsigned int i = 0; i < bsize; i++)
     g->board[i] = calloc(bsize, sizeof(tile*));
@@ -104,10 +103,9 @@ int play (game *game, unsigned int x, unsigned int y) {
     for (int rot = 0; rot < 4; rot++) {//tries each side
       tile->rotation = rot;
       if (valid_move(game, x, y, tile)) {
-        game->board[y][x] = tile; // Acesso padronizado [y][x]
+        game->board[y][x] = tile; 
         unsigned int nx, ny;
         ny = nx = game->size;
-        // Lógica de movimento em espiral com acesso padronizado [y][x]
         if (x < game->size - 1 && game->board[y][x + 1] == NULL && (y == 0 || game->board[y - 1][x] != NULL)) {
             nx = x + 1; ny = y;
         } else if (y < game->size - 1 && game->board[y + 1][x] == NULL) {
@@ -123,7 +121,7 @@ int play (game *game, unsigned int x, unsigned int y) {
         if (ny == game->size || play(game, nx, ny)) {
           return 1;
         }
-        game->board[y][x] = NULL; // Acesso padronizado [y][x]
+        game->board[y][x] = NULL;
       }
     }
     tile->used = 0;
