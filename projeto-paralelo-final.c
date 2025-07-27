@@ -15,7 +15,7 @@
 #include <assert.h>
 #include <string.h>
 #include <mpi.h>
-
+//testes
 // Variáveis para a comunicação MPI (trocar informações entre processos)
 const int WORK = 1;
 const int STOP = 2;
