@@ -356,7 +356,7 @@ int main (int argc, char **argv) {
 
   game *g = initialize(stdin);
 
-  int initial_vertex_choice = 4; 
+  int initial_vertex_choice = 0; 
   if (play_first(g, initial_vertex_choice)) {
     printf("SOLUÇÃO ENCONTRADA (iniciando com a peça de vértice de índice %d):\n", initial_vertex_choice);
     print_solution(g);
