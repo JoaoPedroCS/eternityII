@@ -135,11 +135,10 @@ int play (game *game, unsigned int x, unsigned int y) {
 int main (int argc, char **argv) {
   clock_t start_time, end_time;
   double cpu_time_used;
+  start_time = clock();
 
   game *g = initialize(stdin);
   
-  start_time = clock(); // Inicia o cronômetro
-
   if (play(g, 0, 0)) {
     printf("SOLUÇÃO ENCONTRADA:\n");
     print_solution(g);
@@ -147,10 +146,9 @@ int main (int argc, char **argv) {
     printf("SOLUTION NOT FOUND\n");
   }
 
-  end_time = clock(); // Para o cronômetro
+  end_time = clock();
   cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-  
-  fprintf(stderr, "\nTempo de execução: %f segundos\n", cpu_time_used);
+  printf("Execution time: %f seconds\n", cpu_time_used);
 
   free_resources(g);
   return 0;
