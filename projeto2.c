@@ -1,9 +1,8 @@
 /*
   Seu código original, adaptado para execução paralela com MPI.
   A lógica de busca em espiral foi mantida e é executada pelos trabalhadores.
-  A divisão de trabalho é feita na primeira peça do tabuleiro.
-  CORREÇÃO: A função valid_move foi completada para garantir que todas as
-  soluções encontradas sejam corretas.
+  CORREÇÃO FINAL: Padronizado o acesso ao tabuleiro para [y][x] (linha, coluna)
+  para garantir consistência com o checker e corrigir o erro de validação.
 */
 
 #include <stdio.h>
@@ -52,6 +51,7 @@ int mpi_rank, mpi_size;
 game *initialize_from_data(unsigned int bsize, tile* tiles_data, int tile_count) {
     game *g = malloc(sizeof(game));
     g->size = bsize;
+    // Alocação padronizada para [linha][coluna] -> [y][x]
     g->board = malloc(sizeof(tile**) * bsize);
     for(unsigned int i = 0; i < bsize; i++)
         g->board[i] = calloc(bsize, sizeof(tile*));
@@ -75,6 +75,7 @@ game *initialize(FILE *input) {
 
     game *g = malloc(sizeof(game));
     g->size = bsize;
+    // Alocação padronizada para [linha][coluna] -> [y][x]
     g->board = malloc(sizeof(tile**) * bsize);
     for(unsigned int i = 0; i < bsize; i++)
         g->board[i] = calloc(bsize, sizeof(tile*));
@@ -104,7 +105,7 @@ void free_resources(game *game) {
     free(game);
 }
 
-// --- FUNÇÃO valid_move CORRIGIDA E COMPLETA ---
+// --- FUNÇÃO valid_move com acesso padronizado [y][x] ---
 int valid_move(game *game, unsigned int x, unsigned int y, tile *tile) {
     // Verifica as bordas
     if (x == 0 && W_COLOR(tile) != 0) return 0;
@@ -112,11 +113,11 @@ int valid_move(game *game, unsigned int x, unsigned int y, tile *tile) {
     if (x == game->size - 1 && E_COLOR(tile) != 0) return 0;
     if (y == game->size - 1 && S_COLOR(tile) != 0) return 0;
 
-    // Verifica os vizinhos (agora incluindo direita e baixo)
-    if (x > 0 && game->board[x - 1][y] != NULL && E_COLOR(game->board[x - 1][y]) != W_COLOR(tile)) return 0;
-    if (y > 0 && game->board[x][y - 1] != NULL && S_COLOR(game->board[x][y - 1]) != N_COLOR(tile)) return 0;
-    if (x < game->size - 1 && game->board[x + 1][y] != NULL && W_COLOR(game->board[x + 1][y]) != E_COLOR(tile)) return 0;
-    if (y < game->size - 1 && game->board[x][y + 1] != NULL && N_COLOR(game->board[x][y + 1]) != S_COLOR(tile)) return 0;
+    // Verifica os vizinhos
+    if (x > 0 && game->board[y][x - 1] != NULL && E_COLOR(game->board[y][x - 1]) != W_COLOR(tile)) return 0;
+    if (y > 0 && game->board[y - 1][x] != NULL && S_COLOR(game->board[y - 1][x]) != N_COLOR(tile)) return 0;
+    if (x < game->size - 1 && game->board[y][x + 1] != NULL && W_COLOR(game->board[y][x + 1]) != E_COLOR(tile)) return 0;
+    if (y < game->size - 1 && game->board[y + 1][x] != NULL && N_COLOR(game->board[y + 1][x]) != S_COLOR(tile)) return 0;
     
     return 1;
 }
@@ -160,16 +161,17 @@ int play_worker(game *game, unsigned int x, unsigned int y, int *stop_flag) {
         for (int rot = 0; rot < 4; rot++) {
             current_tile->rotation = rot;
             if (valid_move(game, x, y, current_tile)) {
-                game->board[x][y] = current_tile;
+                game->board[y][x] = current_tile; // Acesso padronizado [y][x]
                 
                 unsigned int nx, ny;
-                if (x < game->size - 1 && game->board[x + 1][y] == NULL && (y == 0 || game->board[x][y - 1] != NULL)) {
+                // Lógica de movimento em espiral com acesso padronizado [y][x]
+                if (x < game->size - 1 && game->board[y][x + 1] == NULL && (y == 0 || game->board[y - 1][x] != NULL)) {
                     nx = x + 1; ny = y;
-                } else if (y < game->size - 1 && game->board[x][y + 1] == NULL) {
+                } else if (y < game->size - 1 && game->board[y + 1][x] == NULL) {
                     nx = x; ny = y + 1;
-                } else if (x > 0 && game->board[x - 1][y] == NULL) {
+                } else if (x > 0 && game->board[y][x - 1] == NULL) {
                     nx = x - 1; ny = y;
-                } else if (y > 0 && game->board[x][y - 1] == NULL) {
+                } else if (y > 0 && game->board[y - 1][x] == NULL) {
                     nx = x; ny = y - 1;
                 } else {
                     ny = game->size;
@@ -180,9 +182,10 @@ int play_worker(game *game, unsigned int x, unsigned int y, int *stop_flag) {
                     solution_tile* solution_payload = malloc(num_tiles * sizeof(solution_tile));
                     
                     int k = 0;
+                    // Construção da solução em row-major order (y, depois x)
                     for (unsigned int j_board = 0; j_board < game->size; j_board++) {
                         for (unsigned int i_board = 0; i_board < game->size; i_board++) {
-                            tile* t = game->board[i_board][j_board];
+                            tile* t = game->board[j_board][i_board];
                             solution_payload[k].id = t->id;
                             solution_payload[k].rotation = t->rotation;
                             k++;
@@ -198,7 +201,7 @@ int play_worker(game *game, unsigned int x, unsigned int y, int *stop_flag) {
                     return 1;
                 }
                 
-                game->board[x][y] = NULL;
+                game->board[y][x] = NULL; // Acesso padronizado [y][x]
             }
         }
         current_tile->used = 0;
@@ -207,7 +210,6 @@ int play_worker(game *game, unsigned int x, unsigned int y, int *stop_flag) {
 }
 
 void master_coordinator(game *g) {
-    printf("Mestre coordenando %d trabalhadores...\n", mpi_size - 1);
     
     int workers_finished = 0;
     int solution_found = 0;
@@ -226,7 +228,6 @@ void master_coordinator(game *g) {
             if (!solution_found) {
                 solution_found = 1;
                 winner_rank = status.MPI_SOURCE;
-                printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", winner_rank);
                 print_solution(final_solution, g->size);
 
                 for (int proc = 1; proc < mpi_size; proc++) {
