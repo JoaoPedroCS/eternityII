@@ -1,8 +1,9 @@
 /*
-  * Projeto Eternity II - Versão Sequencial
-  * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
-  * Feito com base nop codigo do professor Emilio Francesquini
-  * Data: Julho de 2025
+ * Projeto Eternity II - Versão Sequencial
+ * Autores: João Pedro Correa Silva e João Pedro Sousa Bianchim
+ * Feito com base nop codigo do professor Emilio Francesquini
+ * Data: Julho de 2025
+ * Heuristicas feitas: percorrer o tabuleiro em espiral, checar apenas tiles que tem match de cor com tile adjacente. Junto a logica do ponto de partida foi mudado pra facilitar na hora de paralelizar
 */
 
 #include <stdio.h>
@@ -40,7 +41,7 @@ typedef struct {
 #define W_COLOR(t) (X_COLOR(t, 3))
 
 // Adiciona uma peça a uma lista passada deevitando repetir
-void add_tile_to_list(tile_list *list, tile *t) {
+void add_tile(tile_list *list, tile *t) {
   for (unsigned int i = 0; i < list->count; i++) {
     if (list->tiles[i]->id == t->id) {
       return;
@@ -54,7 +55,7 @@ void add_tile_to_list(tile_list *list, tile *t) {
   list->tiles[list->count++] = t;
 }
 // Popula a lista de lista com os tiles correspondentes
-void build_color_buckets(game *g) {
+void create_color_list(game *g) {
 
   g->color_buckets = calloc(g->ncolors, sizeof(tile_list*));
   assert(g->color_buckets != NULL);
@@ -69,13 +70,13 @@ void build_color_buckets(game *g) {
     for (int c = 0; c < 4; c++) {
       unsigned int color = current_tile->colors[c];
       if (color < g->ncolors) {
-        add_tile_to_list(g->color_buckets[color], current_tile);
+        add_tile(g->color_buckets[color], current_tile);
       }
     }
   }
 }
 // Aqui vai ter todas tiles de canto(vertice) que tem 2 cor cinza, se tiver 2 add na lista
-void find_vertex_tiles(game *g) {
+void find_vertex(game *g) {
   g->tiles_vertice = calloc(1, sizeof(tile_list));
   assert(g->tiles_vertice != NULL);
 
@@ -88,11 +89,11 @@ void find_vertex_tiles(game *g) {
       }
     }
     if (zero_count == 2) {
-      add_tile_to_list(g-, current_tile);
+      add_tile(g->tiles_vertice, current_tile);
     }
   }
 }
-
+// Aqui eu respeitei em grande parte logica do prof, apenas adicionei numero de cores e chamei as funções acima
 game *initialize (FILE *input) {
   unsigned int bsize;
   unsigned int ncolors;
@@ -102,7 +103,6 @@ game *initialize (FILE *input) {
   assert (r == 1);
   assert (ncolors < 256);
 
-  //creates an empty board
   game *g = malloc (sizeof(game));
   assert(g != NULL);
   g->ncolors = ncolors + 1;
@@ -111,8 +111,7 @@ game *initialize (FILE *input) {
   g->board = malloc (sizeof (tile**) * bsize);
   for(unsigned int i = 0; i < bsize; i++)
     g->board[i] = calloc(bsize, sizeof(tile*));
-
-  //loads tiles
+  
   g->tiles = malloc(g->tile_count * sizeof(tile));
   for (unsigned int i = 0; i < g->tile_count; i++) {
     g->tiles[i].rotation = 0;
@@ -124,18 +123,18 @@ game *initialize (FILE *input) {
     }
   }
 
-  build_color_buckets(g);
-  find_vertex_tiles(g);
+  create_color_list(g);
+  find_vertex(g);
 
   return g;
 }
-
+// Apenas liberei as coisas novas criadas
 void free_resources(game *game) {
-  if (game->vertex_tiles) {
-    if (game->vertex_tiles->tiles) {
-      free(game->vertex_tiles->tiles);
+  if (game->tiles_vertice) {
+    if (game->tiles_vertice->tiles) {
+      free(game->tiles_vertice->tiles);
     }
-    free(game->vertex_tiles);
+    free(game->tiles_vertice);
   }
 
   if (game->color_buckets) {
@@ -156,15 +155,13 @@ void free_resources(game *game) {
   free(game->board);
   free(game);
 }
-
+// aqui eu só inverti y com x do original, pq misturei os dois e depois tive que inverter aqui
 int valid_move (game *game, unsigned int x, unsigned int y, tile *tile) {
-  //The borders must be 0-colored
   if (x == 0 && W_COLOR(tile) != 0) return 0;
   if (y == 0 && N_COLOR(tile) != 0) return 0;
   if (x == game->size - 1 && E_COLOR(tile) != 0) return 0;
   if (y == game->size - 1 && S_COLOR(tile) != 0) return 0;
 
-  //The tile must also be compatible with its existing neighbours
   if (x > 0 && game->board[y][x - 1] != NULL && E_COLOR(game->board[y][x - 1]) != W_COLOR(tile)) return 0;
   if (y > 0 && game->board[y - 1][x] != NULL && S_COLOR(game->board[y - 1][x]) != N_COLOR(tile)) return 0;
   if (x < game->size - 1 && game->board[y][x + 1] != NULL && W_COLOR(game->board[y][x + 1]) != E_COLOR(tile)) return 0;
@@ -181,10 +178,12 @@ void print_solution (game *game) {
     }
 }
 
-// função play do professor modificada para seguir espiral
+int play (game *game, unsigned int x, unsigned int y, unsigned int required_color);
+int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int required_color);
+
+// função play do professor modificada para seguir espiral na logica de fazer espiral ela ja define a cor que vai ser passada pro proximo, quee vai apenas olhar tiles que tem match de cor com valor recebido
 int play (game *game, unsigned int x, unsigned int y, unsigned int required_color) {
   
-  // Usa a cor recebida para pegar a lista de candidatos
   tile_list *candidate_list = game->color_buckets[required_color];
   
   for (unsigned int i = 0; i < candidate_list->count; i++) {
@@ -200,7 +199,6 @@ int play (game *game, unsigned int x, unsigned int y, unsigned int required_colo
         unsigned int next_required_color = 0;
         ny = nx = game->size;
 
-        // Determina a próxima posição E a próxima cor necessária
         if (x < game->size - 1 && game->board[y][x + 1] == NULL && (y == 0 || game->board[y - 1][x] != NULL)) {
           nx = x + 1; ny = y;
           next_required_color = E_COLOR(tile);
@@ -229,10 +227,9 @@ int play (game *game, unsigned int x, unsigned int y, unsigned int required_colo
   return 0;
 }
 
-// --- NOVA FUNÇÃO PLAY INVERSA ---
+// basicamente a mesma coisa que play mas espiral anti-horária.
 int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int required_color) {
   
-  // Usa a cor recebida para pegar a lista de candidatos
   tile_list *candidate_list = game->color_buckets[required_color];
   
   for (unsigned int i = 0; i < candidate_list->count; i++) {
@@ -248,7 +245,6 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
         unsigned int next_required_color = 0;
         ny = nx = game->size;
 
-        // Determina a próxima posição E a próxima cor necessária (Espiral Inversa: Baixo -> Direita -> Cima -> Esquerda)
         if (y < game->size - 1 && game->board[y + 1][x] == NULL && (x == 0 || game->board[y][x - 1] != NULL)) {
           nx = x; ny = y + 1;
           next_required_color = S_COLOR(tile);
@@ -277,8 +273,8 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
   return 0;
 }
 
-// Tenta resolver o tabuleiro começando com uma peça de vértice específica,
-// sempre na posição (0,0).
+// Tenta resolver o tabuleiro começando com uma peça de vértice específica escolhida 0 a 7, se for de 0 a 3 chama a função play, se for 4 a 7 chama play inversa. Logica que já ajuda na paralelização
+// Começa sempre na posição (0,0).
 int play_first(game *g, int vertex_choice) {
     
     tile *start_tile;
@@ -286,11 +282,11 @@ int play_first(game *g, int vertex_choice) {
 
     // Lógica para chamar a busca normal ou a inversa
     if (vertex_choice >= 0 && vertex_choice <= 3) {
-        if ((unsigned int)vertex_choice >= g-->count) {
+        if ((unsigned int)vertex_choice >= g->tiles_vertice->count) {
             fprintf(stderr, "Escolha de vértice (%d) inválida. Tente um número menor.\n", vertex_choice);
             return 0;
         }
-        start_tile = g-->tiles[vertex_choice];
+        start_tile = g->tiles_vertice->tiles[vertex_choice];
         
         unsigned int nx = 1, ny = 0; // Próxima posição para a espiral normal
 
@@ -311,11 +307,11 @@ int play_first(game *g, int vertex_choice) {
         }
     } else if (vertex_choice >= 4 && vertex_choice <= 7) {
         int mapped_choice = vertex_choice - 4;
-        if ((unsigned int)mapped_choice >= g-->count) {
+        if ((unsigned int)mapped_choice >= g->tiles_vertice->count) {
             fprintf(stderr, "Escolha de vértice (%d) inválida. Tente um número menor.\n", vertex_choice);
             return 0;
         }
-        start_tile = g-->tiles[mapped_choice];
+        start_tile = g->tiles_vertice->tiles[mapped_choice];
 
         unsigned int nx = 0, ny = 1; // Próxima posição para a espiral inversa
 
