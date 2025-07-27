@@ -32,9 +32,9 @@ typedef struct {
 } tile;
 
 typedef struct {
-  tile **tiles;
-  unsigned int count;
-  unsigned int capacity;
+    tile **tiles;
+    unsigned int count;
+    unsigned int capacity;
 } tile_list;
 
 typedef struct {
@@ -48,8 +48,8 @@ typedef struct {
 } game;
 
 typedef struct {
-  unsigned int id;
-  unsigned char rotation;
+    unsigned int id;
+    unsigned char rotation;
 } solution_tile;
 
 #define X_COLOR(t, s) (t->colors[(s + 4 - t->rotation) % 4])
@@ -67,21 +67,21 @@ void find_vertex_tiles(game *g);
 
 // --- FUNÇÕES DE INICIALIZAÇÃO E LIMPEZA ---
 game *initialize_from_data(unsigned int bsize, unsigned int ncolors, tile* tiles_data, int tile_count) {
-  game *g = malloc(sizeof(game));
-  assert(g != NULL);
-  g->ncolors = ncolors;
-  g->size = bsize;
-  g->tile_count = tile_count;
-  g->board = malloc(sizeof(tile**) * bsize);
-  for(unsigned int i = 0; i < bsize; i++)
-    g->board[i] = calloc(bsize, sizeof(tile*));
-  
-  g->tiles = malloc(g->tile_count * sizeof(tile));
-  memcpy(g->tiles, tiles_data, g->tile_count * sizeof(tile));
-  
-  build_color_buckets(g);
-  find_vertex_tiles(g);
-  return g;
+    game *g = malloc(sizeof(game));
+    assert(g != NULL);
+    g->ncolors = ncolors;
+    g->size = bsize;
+    g->tile_count = tile_count;
+    g->board = malloc(sizeof(tile**) * bsize);
+    for(unsigned int i = 0; i < bsize; i++)
+        g->board[i] = calloc(bsize, sizeof(tile*));
+    
+    g->tiles = malloc(g->tile_count * sizeof(tile));
+    memcpy(g->tiles, tiles_data, g->tile_count * sizeof(tile));
+    
+    build_color_buckets(g);
+    find_vertex_tiles(g);
+    return g;
 }
 
 game *initialize (FILE *input) {
@@ -143,14 +143,14 @@ void free_resources(game *game) {
 }
 
 void reset_game_state(game *g) {
-  for (unsigned int y = 0; y < g->size; y++) {
-    for (unsigned int x = 0; x < g->size; x++) {
-      g->board[y][x] = NULL;
+    for (unsigned int y = 0; y < g->size; y++) {
+        for (unsigned int x = 0; x < g->size; x++) {
+            g->board[y][x] = NULL;
+        }
     }
-  }
-  for (unsigned int i = 0; i < g->tile_count; i++) {
-    g->tiles[i].used = 0;
-  }
+    for (unsigned int i = 0; i < g->tile_count; i++) {
+        g->tiles[i].used = 0;
+    }
 }
 
 // --- LÓGICA DE VALIDAÇÃO E IMPRESSÃO ---
@@ -167,13 +167,13 @@ int valid_move (game *game, unsigned int x, unsigned int y, tile *tile) {
 }
 
 void print_solution (solution_tile* solution, unsigned int size) {
-  int k = 0;
-  for(unsigned int j = 0; j < size; j++) {
-    for(unsigned int i = 0; i < size; i++) {
-      printf("%u %u\n", solution[k].id, solution[k].rotation);
-      k++;
+    int k = 0;
+    for(unsigned int j = 0; j < size; j++) {
+        for(unsigned int i = 0; i < size; i++) {
+            printf("%u %u\n", solution[k].id, solution[k].rotation);
+            k++;
+        }
     }
-  }
 }
 
 // --- FUNÇÕES DE BUSCA RECURSIVA (para os trabalhadores) ---
@@ -181,12 +181,12 @@ int play (game *game, unsigned int x, unsigned int y, unsigned int required_colo
   if (*stop_flag) return 0;
   static int check_counter = 0;
   if (++check_counter % 2000 == 0) {
-    int message_present = 0;
-    MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
-    if (message_present) {
-      *stop_flag = 1;
-      return 0;
-    }
+      int message_present = 0;
+      MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
+      if (message_present) {
+          *stop_flag = 1;
+          return 0;
+      }
   }
   
   tile_list *candidate_list = game->color_buckets[required_color];
@@ -234,12 +234,12 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
   if (*stop_flag) return 0;
   static int check_counter = 0;
   if (++check_counter % 2000 == 0) {
-    int message_present = 0;
-    MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
-    if (message_present) {
-      *stop_flag = 1;
-      return 0;
-    }
+      int message_present = 0;
+      MPI_Iprobe(0, STOP_TAG, MPI_COMM_WORLD, &message_present, MPI_STATUS_IGNORE);
+      if (message_present) {
+          *stop_flag = 1;
+          return 0;
+      }
   }
   
   tile_list *candidate_list = game->color_buckets[required_color];
@@ -284,149 +284,149 @@ int play_inversa (game *game, unsigned int x, unsigned int y, unsigned int requi
 }
 
 int play_first(game *g, int vertex_choice, int *stop_flag) {
-  tile *start_tile;
-  unsigned int x = 0, y = 0;
+    tile *start_tile;
+    unsigned int x = 0, y = 0;
 
-  if (vertex_choice >= 0 && vertex_choice <= 3) {
-    if ((unsigned int)vertex_choice >= g->vertex_tiles->count) return 0;
-    start_tile = g->vertex_tiles->tiles[vertex_choice];
-    unsigned int nx = 1, ny = 0;
-    for (int rot = 0; rot < 4; rot++) {
-      start_tile->rotation = rot;
-      if (valid_move(g, x, y, start_tile)) {
-        g->board[y][x] = start_tile;
-        start_tile->used = 1;
-        unsigned int next_required_color = E_COLOR(start_tile);
-        if (play(g, nx, ny, next_required_color, stop_flag)) return 1;
-        g->board[y][x] = NULL;
-        start_tile->used = 0;
-      }
+    if (vertex_choice >= 0 && vertex_choice <= 3) {
+        if ((unsigned int)vertex_choice >= g->vertex_tiles->count) return 0;
+        start_tile = g->vertex_tiles->tiles[vertex_choice];
+        unsigned int nx = 1, ny = 0;
+        for (int rot = 0; rot < 4; rot++) {
+            start_tile->rotation = rot;
+            if (valid_move(g, x, y, start_tile)) {
+                g->board[y][x] = start_tile;
+                start_tile->used = 1;
+                unsigned int next_required_color = E_COLOR(start_tile);
+                if (play(g, nx, ny, next_required_color, stop_flag)) return 1;
+                g->board[y][x] = NULL;
+                start_tile->used = 0;
+            }
+        }
+    } else if (vertex_choice >= 4 && vertex_choice <= 7) {
+        int mapped_choice = vertex_choice - 4;
+        if ((unsigned int)mapped_choice >= g->vertex_tiles->count) return 0;
+        start_tile = g->vertex_tiles->tiles[mapped_choice];
+        unsigned int nx = 0, ny = 1;
+        for (int rot = 0; rot < 4; rot++) {
+            start_tile->rotation = rot;
+            if (valid_move(g, x, y, start_tile)) {
+                g->board[y][x] = start_tile;
+                start_tile->used = 1;
+                unsigned int next_required_color = S_COLOR(start_tile);
+                if (play_inversa(g, nx, ny, next_required_color, stop_flag)) return 1;
+                g->board[y][x] = NULL;
+                start_tile->used = 0;
+            }
+        }
     }
-  } else if (vertex_choice >= 4 && vertex_choice <= 7) {
-    int mapped_choice = vertex_choice - 4;
-    if ((unsigned int)mapped_choice >= g->vertex_tiles->count) return 0;
-    start_tile = g->vertex_tiles->tiles[mapped_choice];
-    unsigned int nx = 0, ny = 1;
-    for (int rot = 0; rot < 4; rot++) {
-      start_tile->rotation = rot;
-      if (valid_move(g, x, y, start_tile)) {
-        g->board[y][x] = start_tile;
-        start_tile->used = 1;
-        unsigned int next_required_color = S_COLOR(start_tile);
-        if (play_inversa(g, nx, ny, next_required_color, stop_flag)) return 1;
-        g->board[y][x] = NULL;
-        start_tile->used = 0;
-      }
-    }
-  }
-  return 0;
+    return 0;
 }
 
 // --- LÓGICA DO MESTRE E DOS TRABALHADORES ---
 void master_process(game *g, int mpi_size) {
-  double start_time, end_time;
-  int total_tasks = 8;
-  int next_task = 0;
-  int workers_finished = 0;
-  int solution_found = 0;
-  
-  MPI_Barrier(MPI_COMM_WORLD);
-  start_time = MPI_Wtime();
-
-  // Distribui as tarefas iniciais para os trabalhadores
-  for (int rank = 1; rank < mpi_size; rank++) {
-    if (next_task < total_tasks) {
-      MPI_Send(&next_task, 1, MPI_INT, rank, WORK_TAG, MPI_COMM_WORLD);
-      next_task++;
-    } else {
-      MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD); // Nenhuma tarefa para este
-    }
-  }
-
-  while (workers_finished < (mpi_size - 1)) {
-    MPI_Status status;
-    MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    double start_time, end_time;
+    int total_tasks = 8;
+    int next_task = 0;
+    int workers_finished = 0;
+    int solution_found = 0;
     
-    if (status.MPI_TAG == SOLUTION_TAG) {
-      const int num_tiles = g->size * g->size;
-      solution_tile* final_solution = malloc(num_tiles * sizeof(solution_tile));
-      MPI_Recv(final_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, status.MPI_SOURCE, SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      
-      if (!solution_found) {
-        solution_found = 1;
-        end_time = MPI_Wtime();
-        printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
-        print_solution(final_solution, g->size);
-        fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
-        
-        // Manda parar todos os trabalhadores
-        for (int rank = 1; rank < mpi_size; rank++) {
-          MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    start_time = MPI_Wtime();
+
+    // Distribui as tarefas iniciais para os trabalhadores
+    for (int rank = 1; rank < mpi_size; rank++) {
+        if (next_task < total_tasks) {
+            MPI_Send(&next_task, 1, MPI_INT, rank, WORK_TAG, MPI_COMM_WORLD);
+            next_task++;
+        } else {
+            MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD); // Nenhuma tarefa para este
         }
-      }
-      free(final_solution);
-      workers_finished++;
-
-    } else if (status.MPI_TAG == NO_SOLUTION_TAG) {
-      int task_completed;
-      MPI_Recv(&task_completed, 1, MPI_INT, status.MPI_SOURCE, NO_SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-      if (solution_found) {
-        // Se a solução já foi encontrada, apenas marca como finalizado
-        workers_finished++;
-      } else if (next_task < total_tasks) {
-        // Se ainda há tarefas, envia a próxima
-        MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, WORK_TAG, MPI_COMM_WORLD);
-        next_task++;
-      } else {
-        // Se não há mais tarefas, manda parar
-        MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, STOP_TAG, MPI_COMM_WORLD);
-        workers_finished++;
-      }
     }
-  }
 
-  if (!solution_found) {
-    end_time = MPI_Wtime();
-    printf("SOLUTION NOT FOUND\n");
-    fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
-  }
+    while (workers_finished < (mpi_size - 1)) {
+        MPI_Status status;
+        MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        
+        if (status.MPI_TAG == SOLUTION_TAG) {
+            const int num_tiles = g->size * g->size;
+            solution_tile* final_solution = malloc(num_tiles * sizeof(solution_tile));
+            MPI_Recv(final_solution, num_tiles * sizeof(solution_tile), MPI_BYTE, status.MPI_SOURCE, SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            
+            if (!solution_found) {
+                solution_found = 1;
+                end_time = MPI_Wtime();
+                printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
+                print_solution(final_solution, g->size);
+                fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
+                
+                // Manda parar todos os trabalhadores
+                for (int rank = 1; rank < mpi_size; rank++) {
+                    MPI_Send(&next_task, 1, MPI_INT, rank, STOP_TAG, MPI_COMM_WORLD);
+                }
+            }
+            free(final_solution);
+            workers_finished++;
+
+        } else if (status.MPI_TAG == NO_SOLUTION_TAG) {
+            int task_completed;
+            MPI_Recv(&task_completed, 1, MPI_INT, status.MPI_SOURCE, NO_SOLUTION_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            if (solution_found) {
+                // Se a solução já foi encontrada, apenas marca como finalizado
+                workers_finished++;
+            } else if (next_task < total_tasks) {
+                // Se ainda há tarefas, envia a próxima
+                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, WORK_TAG, MPI_COMM_WORLD);
+                next_task++;
+            } else {
+                // Se não há mais tarefas, manda parar
+                MPI_Send(&next_task, 1, MPI_INT, status.MPI_SOURCE, STOP_TAG, MPI_COMM_WORLD);
+                workers_finished++;
+            }
+        }
+    }
+
+    if (!solution_found) {
+        end_time = MPI_Wtime();
+        printf("SOLUTION NOT FOUND\n");
+        fprintf(stderr, "\nTempo de execução: %f segundos\n", end_time - start_time);
+    }
 }
 
 void worker_process(game *g) {
-  int stop_flag = 0;
-  MPI_Barrier(MPI_COMM_WORLD);
+    int stop_flag = 0;
+    MPI_Barrier(MPI_COMM_WORLD);
 
-  while(!stop_flag) {
-    int task_id;
-    MPI_Status status;
-    MPI_Recv(&task_id, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    while(!stop_flag) {
+        int task_id;
+        MPI_Status status;
+        MPI_Recv(&task_id, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-    if (status.MPI_TAG == STOP_TAG) {
-      stop_flag = 1;
-      continue;
-    }
-
-    reset_game_state(g);
-    if (play_first(g, task_id, &stop_flag)) {
-      const int num_tiles = g->size * g->size;
-      solution_tile* solution_payload = malloc(num_tiles * sizeof(solution_tile));
-      int k = 0;
-      for (unsigned int j = 0; j < g->size; j++) {
-        for (unsigned int i = 0; i < g->size; i++) {
-          tile* t = g->board[j][i];
-          solution_payload[k].id = t->id;
-          solution_payload[k].rotation = t->rotation;
-          k++;
+        if (status.MPI_TAG == STOP_TAG) {
+            stop_flag = 1;
+            continue;
         }
-      }
-      MPI_Send(solution_payload, num_tiles * sizeof(solution_tile), MPI_BYTE, 0, SOLUTION_TAG, MPI_COMM_WORLD);
-      free(solution_payload);
-      stop_flag = 1; // Encontrou, pode parar
-    } else {
-      MPI_Send(&task_id, 1, MPI_INT, 0, NO_SOLUTION_TAG, MPI_COMM_WORLD);
+
+        reset_game_state(g);
+        if (play_first(g, task_id, &stop_flag)) {
+            const int num_tiles = g->size * g->size;
+            solution_tile* solution_payload = malloc(num_tiles * sizeof(solution_tile));
+            int k = 0;
+            for (unsigned int j = 0; j < g->size; j++) {
+                for (unsigned int i = 0; i < g->size; i++) {
+                    tile* t = g->board[j][i];
+                    solution_payload[k].id = t->id;
+                    solution_payload[k].rotation = t->rotation;
+                    k++;
+                }
+            }
+            MPI_Send(solution_payload, num_tiles * sizeof(solution_tile), MPI_BYTE, 0, SOLUTION_TAG, MPI_COMM_WORLD);
+            free(solution_payload);
+            stop_flag = 1; // Encontrou, pode parar
+        } else {
+            MPI_Send(&task_id, 1, MPI_INT, 0, NO_SOLUTION_TAG, MPI_COMM_WORLD);
+        }
     }
-  }
 }
 
 
@@ -445,22 +445,22 @@ int main (int argc, char **argv) {
   game *g = NULL;
   
   if (mpi_rank == 0) {
-    g = initialize(stdin);
-    MPI_Bcast(&g->size, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&g->ncolors, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&g->tile_count, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(g->tiles, g->tile_count * sizeof(tile), MPI_BYTE, 0, MPI_COMM_WORLD);
-    master_process(g, mpi_size);
+      g = initialize(stdin);
+      MPI_Bcast(&g->size, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(&g->ncolors, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(&g->tile_count, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(g->tiles, g->tile_count * sizeof(tile), MPI_BYTE, 0, MPI_COMM_WORLD);
+      master_process(g, mpi_size);
   } else {
-    unsigned int bsize, ncolors, tile_count;
-    MPI_Bcast(&bsize, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&ncolors, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&tile_count, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    tile *tiles_data = malloc(tile_count * sizeof(tile));
-    MPI_Bcast(tiles_data, tile_count * sizeof(tile), MPI_BYTE, 0, MPI_COMM_WORLD);
-    g = initialize_from_data(bsize, ncolors, tiles_data, tile_count);
-    free(tiles_data);
-    worker_process(g);
+      unsigned int bsize, ncolors, tile_count;
+      MPI_Bcast(&bsize, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(&ncolors, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(&tile_count, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      tile *tiles_data = malloc(tile_count * sizeof(tile));
+      MPI_Bcast(tiles_data, tile_count * sizeof(tile), MPI_BYTE, 0, MPI_COMM_WORLD);
+      g = initialize_from_data(bsize, ncolors, tiles_data, tile_count);
+      free(tiles_data);
+      worker_process(g);
   }
   
   free_resources(g);
