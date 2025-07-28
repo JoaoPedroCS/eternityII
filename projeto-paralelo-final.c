@@ -351,11 +351,11 @@ int play_first(game *g, int vertex_choice, int *stop_flag) {
 
 // Lógica do P0: Enviar dados para os outros processadores e gerenciar a execução
 void master_process(game *g, int mpi_size) {
-    // double start_time, end_time;
+    double start_time, end_time;
     int tot_tasks = 8, next_task = 0, workers_finished = 0, solution_found = 0;
     
     MPI_Barrier(MPI_COMM_WORLD);
-    // start_time = MPI_Wtime();
+    start_time = MPI_Wtime();
 
     // Distribui as tarefas iniciais para os trabalhadores e gerenciar quando uma resposta é encontrada
     for (int rank = 1; rank < mpi_size; rank++) {
@@ -380,10 +380,10 @@ void master_process(game *g, int mpi_size) {
             
             if (!solution_found) {
                 solution_found = 1;
-                // end_time = MPI_Wtime();
-                // printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
+                end_time = MPI_Wtime();
+                printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
                 print_solution(final_solution, g->size);
-                // printf("\nTempo de execução: %f segundos\n", end_time - start_time);
+                printf("\nTempo de execução: %f segundos\n", end_time - start_time);
                 
                 // Manda parar todos os trabalhadores
                 for (int rank = 1; rank < mpi_size; rank++) {
