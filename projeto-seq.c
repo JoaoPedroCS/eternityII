@@ -350,12 +350,12 @@ int main (int argc, char **argv) {
   if (play_first(g, initial_vertex_choice)) {
     print_solution(g);
   } else {
-    printf("SOLUTION NOT FOUND (iniciando com a peça de vértice de índice %d)\n", initial_vertex_choice);
+    // printf("SOLUTION NOT FOUND (iniciando com a peça de vértice de índice %d)\n", initial_vertex_choice);
   }
 
   end_time = clock();
   cpu_time_used = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
-  printf("Execution time: %f seconds\n", cpu_time_used);
+  // printf("Execution time: %f seconds\n", cpu_time_used);
 
   free_resources(g);
   return 0;

@@ -381,9 +381,9 @@ void master_process(game *g, int mpi_size) {
             if (!solution_found) {
                 solution_found = 1;
                 end_time = MPI_Wtime();
-                printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
+                //printf("SOLUÇÃO ENCONTRADA (pelo trabalhador %d):\n", status.MPI_SOURCE);
                 print_solution(final_solution, g->size);
-                printf("\nTempo de execução: %f segundos\n", end_time - start_time);
+                //printf("\nTempo de execução: %f segundos\n", end_time - start_time);
                 
                 // Manda parar todos os trabalhadores
                 for (int rank = 1; rank < mpi_size; rank++) {
